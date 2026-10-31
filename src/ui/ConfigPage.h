@@ -11,12 +11,13 @@ class QLabel;
 class AppConfig;
 class RobotController;
 class Camera;
+class HandEyeCalibrator;
 
 class ConfigPage : public QWidget
 {
     Q_OBJECT
 public:
-    ConfigPage(AppConfig* cfg, RobotController* robot, Camera* cam, QWidget* parent = nullptr);
+    ConfigPage(AppConfig* cfg, RobotController* robot, Camera* cam, HandEyeCalibrator* calib, QWidget* parent = nullptr);
 
 signals:
     void statusMessage(const QString&);
@@ -25,6 +26,7 @@ private slots:
     void onSave();
     void onConnectRobot();
     void onOpenCamera();
+    void onChooseMatrix();
 
 private:
     void buildUi();
@@ -33,6 +35,9 @@ private:
     AppConfig*     m_cfg;
     RobotController* m_robot;
     Camera*        m_cam;
+    HandEyeCalibrator* m_calib;
+    QLineEdit* m_matrixPath;
+    QLabel* m_matrixStatus;
 
     QLineEdit* m_ip;      QSpinBox* m_port;
     QSpinBox*  m_speed;   QLineEdit* m_tool;

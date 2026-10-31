@@ -2,6 +2,7 @@
 
 #include <QWidget>
 #include <QTimer>
+#include <QElapsedTimer>
 #include <opencv2/opencv.hpp>
 
 class ImageWidget;
@@ -34,7 +35,6 @@ private slots:
     void onPixelClicked(int u, int v);
     void onCollectSample();
     void onExportDataset();     // 导出规范 JSON + 图像
-    void onLoadMatrix();
     void onClearSamples();      // 清空已采集
 
 private:
@@ -48,11 +48,12 @@ private:
     HandEyeCalibrator* m_calib;
 
     QTimer  m_timer;
+    QElapsedTimer m_frameAge;
+    qint64 m_frameTimestampMs = 0;
     ImageWidget* m_view;
     QLabel*  m_lblInfo;
     QLabel*  m_lblSampleCount;
     QPushButton* m_btnCollect;
     QPushButton* m_btnExport;
     QPushButton* m_btnClear;
-    QPushButton* m_btnLoad;
 };

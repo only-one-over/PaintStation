@@ -2,6 +2,10 @@
 
 #include <QDebug>
 #include <memory>
+#include <cmath>
+#if HAVE_LIBREALSENSE
+#include <librealsense2/rsutil.h>
+#endif
 
 RealSenseCamera::RealSenseCamera() = default;
 RealSenseCamera::~RealSenseCamera() { close(); }
@@ -21,6 +25,7 @@ bool RealSenseCamera::open(const QString& serial, int width, int height, int fps
 
         auto intr = prof.get_stream(RS2_STREAM_COLOR)
                         .as<rs2::video_stream_profile>().get_intrinsics();
+        m_colorIntrinsics = intr;
         m_K.width = intr.width; m_K.height = intr.height;
         m_K.fx = intr.fx;      m_K.fy = intr.fy;
         m_K.cx = intr.ppx;     m_K.cy = intr.ppy;
@@ -76,6 +81,17 @@ bool RealSenseCamera::readFrame(cv::Mat& color, cv::Mat& alignedDepth)
     }
 }
 
+bool RealSenseCamera::pixelToCamera(int u, int v, float zMM, cv::Point3f& out) const
+{
+    if (!m_pipe || zMM <= 0 || m_colorIntrinsics.fx <= 0 || m_colorIntrinsics.fy <= 0 ||
+        m_colorIntrinsics.model == RS2_DISTORTION_MODIFIED_BROWN_CONRADY) return false;
+    float pixel[2] = {static_cast<float>(u), static_cast<float>(v)};
+    float point[3];
+    rs2_deproject_pixel_to_point(point, &m_colorIntrinsics, pixel, zMM);
+    out = {point[0], point[1], point[2]};
+    return std::isfinite(point[0]) && std::isfinite(point[1]) && std::isfinite(point[2]);
+}
+
 #else  // ---- STUB: 未装 librealsense2 ----
 
 bool RealSenseCamera::open(const QString&, int, int, int)
@@ -86,5 +102,6 @@ bool RealSenseCamera::open(const QString&, int, int, int)
 void RealSenseCamera::close() { m_opened = false; }
 bool RealSenseCamera::isOpened() const { return m_opened; }
 bool RealSenseCamera::readFrame(cv::Mat&, cv::Mat&) { return false; }
+bool RealSenseCamera::pixelToCamera(int, int, float, cv::Point3f&) const { return false; }
 
 #endif

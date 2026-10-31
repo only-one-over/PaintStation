@@ -34,7 +34,7 @@ QString FlowBlock::typeName(Type t)
         case MOVEJ:     return "关节运动";
         case MOVEL:     return "直线运动";
         case DELAY:     return "延时";
-        case SET_SPEED: return "设置速度";
+        case SET_SPEED: return "旧版速度模块（请删除）";
         case IO_WRITE:  return "IO 输出";
         default:        return "未知";
     }
@@ -46,7 +46,7 @@ QString FlowBlock::typeHint(Type t)
         case MOVEJ:     return "关节 movej 到指定点位";
         case MOVEL:     return "直线 movel 到指定点位";
         case DELAY:     return "等待 N 秒";
-        case SET_SPEED: return "设置全局速度百分比";
+        case SET_SPEED: return "请删除旧模块，在每个运动步骤中设置速度";
         case IO_WRITE:  return "写数字输出 DO[index] = value";
         default:        return "";
     }

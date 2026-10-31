@@ -32,8 +32,8 @@ void ImageWidget::paintEvent(QPaintEvent*)
     if (!m_lastClick.isNull()) {
         double sx = (double)m_img.width()  / m_drawRect.width();
         double sy = (double)m_img.height() / m_drawRect.height();
-        int dx = m_drawRect.x() + (int)(m_lastClick.x()*sx);
-        int dy = m_drawRect.y() + (int)(m_lastClick.y()*sy);
+        int dx = m_drawRect.x() + (int)(m_lastClick.x()/sx);
+        int dy = m_drawRect.y() + (int)(m_lastClick.y()/sy);
         p.setPen(Qt::red);
         p.drawLine(dx-6,dy,dx+6,dy);
         p.drawLine(dx,dy-6,dx,dy+6);

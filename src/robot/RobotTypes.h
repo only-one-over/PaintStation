@@ -30,7 +30,7 @@ struct FlowBlock {
         MOVEJ,      // 关节运动到点位
         MOVEL,      // 直线运动到点位
         DELAY,      // 延时
-        SET_SPEED,  // 设置全局速度
+        SET_SPEED,  // 保留旧文件的类型编号，不再提供此模块
         IO_WRITE,   // 写 DO（索引+值）
         TYPE_COUNT
     };

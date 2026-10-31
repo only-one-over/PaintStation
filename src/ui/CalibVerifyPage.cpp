@@ -63,13 +63,10 @@ void CalibVerifyPage::buildUi()
     m_btnCollect = new QPushButton("采集一组 (棋盘格)");
     m_btnExport  = new QPushButton("导出数据集 (JSON+图)");
     m_btnClear   = new QPushButton("清空采集");
-    m_btnLoad    = new QPushButton("导入外部矩阵");
     m_btnClear->setProperty("secondary", true);
-    m_btnLoad->setProperty("secondary", true);
     side->addWidget(m_btnCollect);
     side->addWidget(m_btnExport);
     side->addWidget(m_btnClear);
-    side->addWidget(m_btnLoad);
     side->addStretch();
     root->addLayout(side);
 
@@ -77,14 +74,15 @@ void CalibVerifyPage::buildUi()
     connect(m_btnCollect, &QPushButton::clicked, this, &CalibVerifyPage::onCollectSample);
     connect(m_btnExport,  &QPushButton::clicked, this, &CalibVerifyPage::onExportDataset);
     connect(m_btnClear,   &QPushButton::clicked, this, &CalibVerifyPage::onClearSamples);
-    connect(m_btnLoad,    &QPushButton::clicked, this, &CalibVerifyPage::onLoadMatrix);
 }
 
 void CalibVerifyPage::onTimeout()
 {
-    if (!m_cam || !m_cam->isOpened()) return;
+    if (!m_cam || !m_cam->isOpened()) { m_lastColor.release(); m_lastDepthMM.release(); return; }
     cv::Mat color, depth;
-    if (!m_cam->readFrame(color, depth)) return;
+    if (!m_cam->readFrame(color, depth)) { m_lastColor.release(); m_lastDepthMM.release(); m_lblInfo->setText("相机取帧失败，请检查连接"); return; }
+    m_frameAge.restart();
+    m_frameTimestampMs = QDateTime::currentMSecsSinceEpoch();
     m_lastColor = color;
     m_lastDepthMM = depth;
     m_view->showImage(cvMatToQImage(color));
@@ -103,7 +101,8 @@ void CalibVerifyPage::onPixelClicked(int u, int v)
         m_lblInfo->setText("该像素深度或相机内参无效");
         return;
     }
-    cv::Point3f p_cam = m_cam->pixelToCamera(u, v, (float)zMM, K);
+    cv::Point3f p_cam;
+    if (!m_cam->pixelToCamera(u, v, (float)zMM, p_cam)) { m_lblInfo->setText("相机畸变模型不支持反投影"); return; }
     if (!m_calib->hasMatrix()) {
         m_lblInfo->setText(QString("像素: (%1, %2)\n深度: %3 mm\n相机坐标: (%4, %5, %6) mm\n尚未加载手眼矩阵")
             .arg(u).arg(v).arg(zMM).arg(p_cam.x, 0, 'f', 1).arg(p_cam.y, 0, 'f', 1).arg(p_cam.z, 0, 'f', 1));
@@ -129,13 +128,14 @@ void CalibVerifyPage::onPixelClicked(int u, int v)
 
 void CalibVerifyPage::onCollectSample()
 {
-    if (m_lastColor.empty()) { emit statusMessage("相机未出图"); return; }
+    if (!m_cam->isOpened() || m_lastColor.empty() || !m_frameAge.isValid() || m_frameAge.elapsed() > 500) { emit statusMessage("相机画面无效或已过期"); return; }
     ToolPose p;
     if (!m_robot->getCurrentToolPose(p)) {
         emit statusMessage("读不到机器人位姿，请先在配置页连接机器人");
         return;
     }
-    m_calib->collectSample(m_lastColor, p);
+    if (m_frameAge.elapsed() > 500) { emit statusMessage("读取位姿过慢，图像已过期，请重新采集"); return; }
+    m_calib->collectSample(m_lastColor, p, m_frameTimestampMs);
     m_lblSampleCount->setText(QString("已采集: %1 组").arg(m_calib->sampleCount()));
     emit statusMessage(QString("采集成功 #%1  (x=%2 y=%3 z=%4)")
         .arg(m_calib->sampleCount()).arg(p.x,0,'f',1).arg(p.y,0,'f',1).arg(p.z,0,'f',1));
@@ -167,13 +167,4 @@ void CalibVerifyPage::onClearSamples()
     m_calib->clearSamples();
     m_lblSampleCount->setText("已采集: 0 组");
     emit statusMessage("已清空采集");
-}
-
-void CalibVerifyPage::onLoadMatrix()
-{
-    QString path = QFileDialog::getOpenFileName(this, "选择外部求解好的 T_cam2_base JSON",
-        QDir::current().filePath(m_cfg->paths.handEyeMatrixFile), "JSON (*.json)");
-    if (path.isEmpty()) return;
-    if (m_calib->loadMatrix(path)) emit statusMessage("已加载矩阵: " + path);
-    else                           emit statusMessage("加载失败");
 }

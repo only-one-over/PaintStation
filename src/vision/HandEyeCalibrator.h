@@ -10,6 +10,7 @@
 struct HandEyeSample {
     int         index = 0;
     qint64      timestampMs = 0;
+    qint64      imageTimestampMs = 0;
     ToolPose    robot;
     QString     imageFile;
     cv::Mat     image;
@@ -22,7 +23,7 @@ class HandEyeCalibrator
 public:
     HandEyeCalibrator();
 
-    void collectSample(const cv::Mat& color, const ToolPose& robotTool);
+    void collectSample(const cv::Mat& color, const ToolPose& robotTool, qint64 imageTimestampMs);
 
     int  sampleCount() const { return static_cast<int>(m_samples.size()); }
     const std::vector<HandEyeSample>& samples() const { return m_samples; }

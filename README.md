@@ -2,68 +2,45 @@
 
 喷涂手眼标定 & 视觉定位上位机（Qt6 + C++17）。
 
-## 目录结构（四层架构）
+## 项目与依赖
 
-```
-PaintStation/
-├── CMakeLists.txt
-├── config/
-│   └── app_config.json        # 首次运行自动生成
-├── data/                       # 手眼矩阵 / 相机内参保存目录
-└── src/
-    ├── main.cpp
-    ├── ui/                     # UI 层：界面，不直接碰 SDK/硬件
-    │   ├── MainWindow.{h,cpp}
-    │   ├── ConfigPage.{h,cpp}        # 第 1 页：机器人/相机/标定板配置
-    │   ├── CalibVerifyPage.{h,cpp}   # 第 2 页：实时图像 + 点像素出 3D 坐标
-    │   └── ImageWidget.{h,cpp}       # 可点击显示 OpenCV 图像
-    ├── robot/                  # 机器人层：封装埃夫特 EfortSdk
-    │   └── RobotController.{h,cpp}
-    ├── vision/                 # 视觉层：相机 + 手眼标定
-    │   ├── Camera.h              # 抽象接口
-    │   ├── RealSenseCamera.{h,cpp}  # D435i 实现（深度对齐彩色）
-    │   └── HandEyeCalibrator.{h,cpp} # eye-to-hand 标定
-    └── userdata/               # 配置数据层：JSON 读写
-        └── AppConfig.{h,cpp}
-```
+`src/ui` 是操作界面，`src/robot` 封装埃夫特 SDK，`src/vision` 处理图像和标定采集，`src/userdata` 保存配置、点位和流程。运行数据保存在当前工作目录的 `userdata/`。
 
-## 依赖
+依赖 Qt 6 Widgets、OpenCV 4、librealsense2、埃夫特 SDK V2.8.0 和 MSVC x64。埃夫特 SDK 未包含在仓库中，需自行取得并放在项目目录相邻的 `../V2.8.0/`。当前 CMake 默认路径使用本机的 Qt、OpenCV 4.12.0 和 RealSense SDK 安装位置，换电脑需调整路径。
 
-| 组件 | 版本 | 说明 |
-|------|------|------|
-| Qt6 | ≥ 6.2 | Widgets |
-| OpenCV | ≥ 4.x | 棋盘格检测 / solvePnP / calibrateHandEye |
-| librealsense2 | ≥ 2.50 | D435i 取流 |
-| 埃夫特 SDK | V2.8.0 | 已在 `../V2.8.0/`，CMake 自动链接 |
+## 编译、测试和部署
 
-## 编译
+在配置好 MSVC、Qt、Ninja 和 SDK 的开发者命令行中：
 
 ```powershell
-cd D:\桌面\喷涂\PaintStation
-cmake -B build -S . -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Release
+cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="C:/Qt/6.9.3/msvc2022_64" -DCMAKE_MAKE_PROGRAM="C:/Qt/Tools/Ninja/ninja.exe"
+cmake --build build-release
+$env:PATH = "C:/Qt/6.9.3/msvc2022_64/bin;C:/opencv/build/x64/vc16/bin;" + $env:PATH
+ctest --test-dir build-release --output-on-failure
+.\deploy.ps1
 ```
 
-运行时 exe 旁会自动拷入 EftSdk.dll 等；librealsense2.dll 和 opencv_worldxxx.dll 需自行放入 PATH 或 exe 目录。
+部署脚本将 Release 程序、资源、Qt 和第三方运行库收集到 `dist/`。目标机还需官方 Visual C++ x64 Redistributable；设备驱动、SDK 再分发许可和干净电脑运行情况需另外确认。程序使用当前工作目录，启动快捷方式应设置为部署目录，且该目录必须允许写入用户数据。
 
 ## 使用流程
 
 ### 第 1 页 配置
 1. 填机器人 IP（默认 `192.168.1.6`），点"连接机器人"
 2. 填 D435i 序列号（留空=第一台），分辨率 1280x720@30，点"打开相机"
-3. 填棋盘格内角点数（如 11x8）和单格边长（mm）
-4. 点"保存配置"
+3. 选择并加载外部手眼矩阵；设置点位运动速度后点"保存配置"。点位关节运动使用该数值作为百分比，直线运动使用该数值作为 mm/s；不会更改控制器全局倍率。
 
 ### 标定数据采集与验证（eye-to-hand，相机固定）
 1. 棋盘格固定在机器人末端，移动到不同姿态并逐组采集图像与机器人位姿。采集时应保持机器人静止，图像与位姿不是硬件同步的。
 2. 导出 JSON 和图像，在外部软件检测棋盘格并求解手眼矩阵；本程序不做角点检测或矩阵求解。
-3. 导入外部 `T_cam2_base` JSON 后，点击有效深度像素查看基坐标。矩阵格式为 `{"hasMatrix":true,"T_cam2_base":{"r0c0":1,...,"r3c3":1}}`，需提供全部 16 个数值；平移单位为毫米。
-4. 点位管理与流程编辑可创建和运行运动、延时与 IO 步骤。全局速度步骤尚未实现，执行到该步骤会报错。
+3. 在配置页导入外部 `T_cam2_base` JSON 后，点击有效深度像素查看基坐标。矩阵格式为 `{"hasMatrix":true,"T_cam2_base":{"r0c0":1,...,"r3c3":1}}`，需提供全部 16 个数值；平移单位为毫米。
+4. 点位管理与流程编辑可创建和运行运动、延时与 IO 步骤。每条运动步骤分别设置整数速度；旧流程中的独立速度步骤须删除，执行前检查会拒绝包含该步骤的流程。
 
-暂停只阻止进入后续步骤，不会暂停当前运动；停止使用 SDK 的 MOVEHOLD，不等同于安全急停。运动指令返回是否代表到位需要按控制器和 SDK 验证。实际运行前应验证坐标、速度、运动范围和独立安全回路。
+点位页可选择点位并确认运动，使用上次保存到配置中的点位运动速度。顶部“停止运动”按钮发出 SDK 保持指令，不是安全急停；必须使用独立的硬件急停和安全回路。
+
+暂停只阻止进入后续步骤，不会暂停当前运动；停止使用 SDK 的 MOVEHOLD，不等同于安全急停。程序使用 SDK 就位接口等待，关节容差 0.05、笛卡尔容差 0.03、最长等待 120 秒；这些参数、接口行为和停止响应必须在实际控制器上核验。关节速度单位为百分比，直线速度由 SDK 定义为 TCP 速度。实际运行前应验证坐标、速度、运动范围和独立安全回路。
 
 ## 坐标约定
-- 机器人位姿：x,y,z (mm)；a,b,c 为 ZYX 欧拉角（度）
+- 机器人位姿：x,y,z (mm)；a,b,c 的旋转约定及工具坐标须根据现场控制器配置核对
 - 手眼矩阵 T_cam2_base：4x4 齐次变换，相机坐标系 -> 机器人基坐标系
 - 像素到 3D：D435i 深度对齐彩色后，用内参反投影得相机系点，再左乘 T_cam2_base
 

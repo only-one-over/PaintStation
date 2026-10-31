@@ -2,6 +2,7 @@
 #include "AppConfig.h"
 #include "RobotController.h"
 #include "Camera.h"
+#include "HandEyeCalibrator.h"
 
 #include <QFormLayout>
 #include <QLineEdit>
@@ -12,11 +13,12 @@
 #include <QGroupBox>
 #include <QMessageBox>
 #include <QFileInfo>
+#include <QFileDialog>
 #include <QDir>
 #include <QStyle>
 
-ConfigPage::ConfigPage(AppConfig* cfg, RobotController* robot, Camera* cam, QWidget* parent)
-    : QWidget(parent), m_cfg(cfg), m_robot(robot), m_cam(cam)
+ConfigPage::ConfigPage(AppConfig* cfg, RobotController* robot, Camera* cam, HandEyeCalibrator* calib, QWidget* parent)
+    : QWidget(parent), m_cfg(cfg), m_robot(robot), m_cam(cam), m_calib(calib)
 {
     buildUi();
     loadFromCfg();
@@ -56,7 +58,7 @@ void ConfigPage::buildUi()
     m_lblRobotState = new QLabel("● 未连接"); m_lblRobotState->setObjectName("statusBad");
     fRob->addRow("IP 地址", m_ip);
     fRob->addRow("端口", m_port);
-    fRob->addRow("全局速度", m_speed);
+    fRob->addRow("点位运动速度（关节 % / 直线 mm/s）", m_speed);
     fRob->addRow("工具号", m_tool);
     fRob->addRow("", m_btnConnectRobot);
     fRob->addRow("状态", m_lblRobotState);
@@ -81,6 +83,17 @@ void ConfigPage::buildUi()
     grid->addWidget(gbCam, 0, 1);
 
     root->addLayout(grid);
+    auto* matrixGroup = new QGroupBox("手眼标定矩阵 T_cam2_base");
+    auto* matrixLayout = new QHBoxLayout(matrixGroup);
+    m_matrixPath = new QLineEdit;
+    m_matrixPath->setReadOnly(true);
+    auto* chooseMatrix = new QPushButton("选择并加载矩阵");
+    matrixLayout->addWidget(m_matrixPath, 1);
+    m_matrixStatus = new QLabel(m_calib->hasMatrix() ? "已加载" : "未加载");
+    matrixLayout->addWidget(m_matrixStatus);
+    matrixLayout->addWidget(chooseMatrix);
+    connect(chooseMatrix, &QPushButton::clicked, this, &ConfigPage::onChooseMatrix);
+    root->addWidget(matrixGroup);
 
     auto* btnRow = new QHBoxLayout;
     btnRow->addStretch();
@@ -96,6 +109,7 @@ void ConfigPage::buildUi()
 
 void ConfigPage::loadFromCfg()
 {
+    m_matrixPath->setText(m_cfg->paths.handEyeMatrixFile);
     m_ip->setText(m_cfg->robot.ip);
     m_port->setValue(m_cfg->robot.port);
     m_speed->setValue(m_cfg->robot.speed);
@@ -150,4 +164,15 @@ void ConfigPage::onOpenCamera()
     }
     m_lblCamState->style()->unpolish(m_lblCamState);
     m_lblCamState->style()->polish(m_lblCamState);
+}
+
+void ConfigPage::onChooseMatrix()
+{
+    const QString path = QFileDialog::getOpenFileName(this, "选择手眼矩阵", m_matrixPath->text(), "JSON (*.json)");
+    if (path.isEmpty()) return;
+    if (!m_calib->loadMatrix(path)) { emit statusMessage("矩阵无效，保留原有矩阵"); return; }
+    m_matrixPath->setText(path);
+    m_matrixStatus->setText("已加载");
+    m_cfg->paths.handEyeMatrixFile = path;
+    emit statusMessage("手眼矩阵已加载；点击保存配置以便下次启动使用");
 }

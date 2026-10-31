@@ -15,6 +15,7 @@
 #include <QStatusBar>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QTextStream>
 #include <QApplication>
 #include <QDateTime>
@@ -22,6 +23,7 @@
 #include <QVBoxLayout>
 #include <QFrame>
 #include <QLabel>
+#include <QPushButton>
 #include <opencv2/opencv.hpp>
 
 static QFile g_logFile;
@@ -56,6 +58,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     qInstallMessageHandler(messageHandler);
 
     m_cfg->load(QDir::current().filePath(m_cfg->paths.appConfigFile));
+    const QString matrixPath = QFileInfo(m_cfg->paths.handEyeMatrixFile).isAbsolute()
+        ? m_cfg->paths.handEyeMatrixFile : QDir::current().filePath(m_cfg->paths.handEyeMatrixFile);
+    if (QFile::exists(matrixPath) && !m_calib->loadMatrix(matrixPath)) qWarning("手眼矩阵加载失败");
 
     // 加载已有点位
     m_points->load(QDir::current().filePath("userdata/points/points.json"));
@@ -98,6 +103,9 @@ void MainWindow::buildUi()
     topLay->addWidget(m_lblRobotState);
     topLay->addWidget(m_lblCamState);
     topLay->addWidget(m_lblPose, 1);
+    auto* stopButton = new QPushButton("停止运动（非安全急停）");
+    stopButton->setStyleSheet("background:#b91c1c;color:white;font-weight:bold;");
+    topLay->addWidget(stopButton);
     root->addWidget(topBar);
 
     // ---- 主体：左侧导航 + 右侧栈 ----
@@ -113,11 +121,12 @@ void MainWindow::buildUi()
     m_nav->addItem("▶  流程编辑");
 
     m_stack = new QStackedWidget;
-    auto* p1 = new ConfigPage(m_cfg.get(), m_robot.get(), m_cam.get(), this);
+    auto* p1 = new ConfigPage(m_cfg.get(), m_robot.get(), m_cam.get(), m_calib.get(), this);
     auto* p2 = new CalibVerifyPage(m_cfg.get(), m_robot.get(), m_cam.get(), m_calib.get(), this);
-    auto* p3 = new PointManagerPage(m_robot.get(), m_points.get(), this);
+    auto* p3 = new PointManagerPage(m_robot.get(), m_points.get(), m_cfg.get(), this);
     auto* p4 = new FlowEditPage(m_robot.get(), m_points.get(), this);
     connect(p3, &PointManagerPage::pointsChanged, p4, &FlowEditPage::refreshPointCombo);
+    connect(stopButton, &QPushButton::clicked, p4, &FlowEditPage::stopFromPanel);
     m_stack->addWidget(p1);
     m_stack->addWidget(p2);
     m_stack->addWidget(p3);

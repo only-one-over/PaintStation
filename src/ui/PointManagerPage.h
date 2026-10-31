@@ -11,12 +11,15 @@ class QPushButton;
 class QLabel;
 
 class RobotController;
+class AppConfig;
+class QThread;
 
 class PointManagerPage : public QWidget
 {
     Q_OBJECT
 public:
-    PointManagerPage(RobotController* robot, PointStore* points, QWidget* parent = nullptr);
+    PointManagerPage(RobotController* robot, PointStore* points, AppConfig* cfg, QWidget* parent = nullptr);
+    ~PointManagerPage();
 
 signals:
     void statusMessage(const QString&);
@@ -28,6 +31,7 @@ private slots:
     void onReadCurrent();
     void onApplyEdit();       // 把右侧表单写入当前选中行
     void onSelectionChanged();
+    void onMoveToPoint();
 
 private:
     void buildUi();
@@ -37,6 +41,9 @@ private:
 
     RobotController* m_robot;
     PointStore*      m_store;
+    AppConfig* m_cfg;
+    QThread* m_moveThread = nullptr;
+    QPushButton* m_btnMove = nullptr;
 
     QTableWidget*  m_table;
     QLineEdit*     m_name;
@@ -52,4 +59,5 @@ private:
     QPushButton*   m_btnApply;
 
     int m_currentRow = -1;
+    bool m_canSave = true;
 };

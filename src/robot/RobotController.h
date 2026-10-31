@@ -3,9 +3,10 @@
 #include <QObject>
 #include <QString>
 #include <mutex>
+#include <atomic>
 
 // 末端位姿（工具坐标系原点在基坐标系下）
-// x,y,z 单位 mm；rpy 单位 度（埃夫特约定为 ZYX 欧拉角，a=绕Z, b=绕Y', c=绕Z''）
+// x,y,z 单位 mm，姿态单位为度；旋转约定以控制器配置为准。
 struct ToolPose {
     double x = 0, y = 0, z = 0;
     double a = 0, b = 0, c = 0;
@@ -29,8 +30,10 @@ public:
     bool getCurrentToolPose(ToolPose& out);
 
     // 运动接口（阻塞直到运动完成）
-    bool moveJoint(const double j[6], double speedPercent = 20.0);
-    bool moveCartesian(const ToolPose& p, double speedPercent = 20.0);
+    bool beginFlow();
+    void endFlow();
+    bool moveJoint(const double j[6], double speedPercent, const QString& tool);
+    bool moveCartesian(const ToolPose& p, double speed, const QString& tool);
     bool stopMotion();
 
     // IO
@@ -44,7 +47,9 @@ signals:
     void connectionChanged(bool connected, const QString& msg);
 
 private:
-    std::mutex m_mtx;
+    mutable std::mutex m_mtx;
+    bool m_flowActive = false;
+    std::atomic<bool> m_stopRequested{false};
     unsigned int m_devId = 0;
     bool m_connected = false;
 };

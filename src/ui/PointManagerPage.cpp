@@ -18,12 +18,23 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QDateTime>
+#include <QThread>
+#include <memory>
 
-PointManagerPage::PointManagerPage(RobotController* robot, PointStore* points, QWidget* parent)
-    : QWidget(parent), m_robot(robot), m_store(points)
+PointManagerPage::PointManagerPage(RobotController* robot, PointStore* points, AppConfig* cfg, QWidget* parent)
+    : QWidget(parent), m_robot(robot), m_store(points), m_cfg(cfg)
 {
     buildUi();
     loadFromStore();
+}
+
+PointManagerPage::~PointManagerPage()
+{
+    if (m_moveThread) {
+        m_robot->stopMotion();
+        m_moveThread->wait();
+        delete m_moveThread;
+    }
 }
 
 void PointManagerPage::buildUi()
@@ -107,6 +118,9 @@ void PointManagerPage::buildUi()
     btnGrid->addWidget(m_btnDel,     1,0);
     btnGrid->addWidget(m_btnApply,   1,1);
     right->addLayout(btnGrid);
+    m_btnMove = new QPushButton("运动到选中点位");
+    right->addWidget(m_btnMove);
+    connect(m_btnMove, &QPushButton::clicked, this, &PointManagerPage::onMoveToPoint);
     right->addStretch();
 
     root->addLayout(right, 1);
@@ -128,14 +142,17 @@ void PointManagerPage::loadFromStore()
 {
     QString path = QDir::current().filePath("userdata/points/points.json");
     QDir().mkpath(QFileInfo(path).absolutePath());
-    m_store->load(path);
+    if (QFileInfo::exists(path) && !m_store->load(path)) {
+        QMessageBox::critical(this, "点位加载失败", "点位文件损坏或格式无效，请备份并修复后重启。禁止保存以保护原文件。");
+        m_canSave = false;
+    }
     refreshTable();
 }
 
 bool PointManagerPage::saveStore()
 {
     QString path = QDir::current().filePath("userdata/points/points.json");
-    return m_store->save(path);
+    return m_canSave && m_store->save(path);
 }
 
 void PointManagerPage::refreshTable()
@@ -208,8 +225,12 @@ void PointManagerPage::onReadCurrent()
 void PointManagerPage::onApplyEdit()
 {
     if (m_currentRow < 0) return;
+    const QString name = m_name->text().trimmed();
+    if (name.isEmpty() || m_tool->text().trimmed().isEmpty()) { emit statusMessage("点位名称和工具名不能为空"); return; }
+    for (int i = 0; i < m_store->points.size(); ++i)
+        if (i != m_currentRow && m_store->points[i].name == name) { emit statusMessage("点位名称重复"); return; }
     auto& p = m_store->points[m_currentRow];
-    p.name = m_name->text();
+    p.name = name;
     p.type = m_type->currentData().toInt() == RobotPoint::CARTESIAN ? RobotPoint::CARTESIAN : RobotPoint::JOINT;
     for (int i = 0; i < 6; ++i) p.j[i] = m_j[i]->value();
     p.x = m_xyz[0]->value(); p.y = m_xyz[1]->value(); p.z = m_xyz[2]->value();
@@ -219,4 +240,42 @@ void PointManagerPage::onApplyEdit()
     emit pointsChanged();
     refreshTable();
     emit statusMessage(saveStore() ? "点位已保存" : "点位保存失败");
+}
+
+void PointManagerPage::onMoveToPoint()
+{
+    if (m_moveThread || m_currentRow < 0 || m_currentRow >= m_store->points.size()) {
+        emit statusMessage("请先选择点位并等待当前运动结束"); return;
+    }
+    if (!m_canSave || !m_robot->isConnected()) { emit statusMessage("点位文件无效或机器人未连接"); return; }
+    const RobotPoint point = m_store->points[m_currentRow];
+    const int speed = m_cfg->robot.speed;
+    QString coords;
+    if (point.type == RobotPoint::JOINT) {
+        for (double joint : point.j) coords += QString::number(joint, 'f', 2) + " ";
+    } else {
+        coords = QString("%1, %2, %3, %4, %5, %6").arg(point.x).arg(point.y).arg(point.z).arg(point.a).arg(point.b).arg(point.c);
+    }
+    const QString description = QString("点位：%1\n坐标：%2\n工具：%3\n速度：%4 %5\n\n确认运动到该点位？")
+        .arg(point.name, coords, point.tool).arg(speed).arg(point.type == RobotPoint::JOINT ? "%" : "mm/s");
+    if (QMessageBox::question(this, "确认机器人运动", description, QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
+    if (!m_robot->beginFlow()) { emit statusMessage("机器人忙或未连接"); return; }
+    auto result = std::make_shared<bool>(false);
+    m_btnMove->setEnabled(false);
+    m_moveThread = QThread::create([robot = m_robot, point, speed, result] {
+        if (point.type == RobotPoint::JOINT) *result = robot->moveJoint(point.j, speed, point.tool);
+        else {
+            ToolPose pose{point.x, point.y, point.z, point.a, point.b, point.c};
+            *result = robot->moveCartesian(pose, speed, point.tool);
+        }
+        robot->endFlow();
+    });
+    connect(m_moveThread, &QThread::finished, this, [this, result] {
+        m_btnMove->setEnabled(true);
+        m_moveThread->deleteLater();
+        m_moveThread = nullptr;
+        emit statusMessage(*result ? "机器人已到达点位" : "点位运动未完成，请检查机器人、工具和停止状态");
+    });
+    emit statusMessage("机器人正在运动到点位");
+    m_moveThread->start();
 }

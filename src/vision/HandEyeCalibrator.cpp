@@ -1,6 +1,7 @@
 #include "HandEyeCalibrator.h"
 
 #include <QFile>
+#include <QSaveFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -12,11 +13,12 @@
 
 HandEyeCalibrator::HandEyeCalibrator() = default;
 
-void HandEyeCalibrator::collectSample(const cv::Mat& color, const ToolPose& pose)
+void HandEyeCalibrator::collectSample(const cv::Mat& color, const ToolPose& pose, qint64 imageTimestampMs)
 {
     HandEyeSample s;
     s.index       = static_cast<int>(m_samples.size());
     s.timestampMs = QDateTime::currentMSecsSinceEpoch();
+    s.imageTimestampMs = imageTimestampMs;
     s.robot       = pose;
     s.image       = color.clone();
     m_samples.push_back(std::move(s));
@@ -29,22 +31,29 @@ void HandEyeCalibrator::clearSamples()
 
 bool HandEyeCalibrator::exportDataset(const QString& jsonFile, const QString& imageDir) const
 {
-    QDir().mkpath(QFileInfo(jsonFile).absolutePath());
-    QDir().mkpath(imageDir);
+    if (!QDir().mkpath(QFileInfo(jsonFile).absolutePath()) || !QDir().mkpath(imageDir)) return false;
 
     QJsonArray arr;
     for (const auto& s : m_samples) {
         QString imgName = QString("sample_%1.png").arg(s.index, 3, 10, QChar('0'));
-        cv::imwrite(QDir(imageDir).filePath(imgName).toStdString(), s.image);
+        std::vector<uchar> encoded;
+        try {
+            if (!cv::imencode(".png", s.image, encoded)) return false;
+        } catch (const cv::Exception&) { return false; }
+        QSaveFile imageFile(QDir(imageDir).filePath(imgName));
+        if (!imageFile.open(QIODevice::WriteOnly) ||
+            imageFile.write(reinterpret_cast<const char*>(encoded.data()), static_cast<qint64>(encoded.size())) != static_cast<qint64>(encoded.size()) ||
+            !imageFile.commit()) return false;
 
         QJsonObject o;
         o["index"]     = s.index;
         o["timestamp"] = s.timestampMs;
+        o["image_timestamp"] = s.imageTimestampMs;
         QJsonObject rp;
         rp["x"]=s.robot.x; rp["y"]=s.robot.y; rp["z"]=s.robot.z;
         rp["a"]=s.robot.a; rp["b"]=s.robot.b; rp["c"]=s.robot.c;
         o["robot_pose"]=rp;
-        o["image_file"]=imgName;
+        o["image_file"]=QDir(QFileInfo(jsonFile).absolutePath()).relativeFilePath(QDir(imageDir).filePath(imgName));
         arr.append(o);
     }
 
@@ -53,9 +62,10 @@ bool HandEyeCalibrator::exportDataset(const QString& jsonFile, const QString& im
     root["sample_count"] = static_cast<int>(m_samples.size());
     root["samples"] = arr;
 
-    QFile f(jsonFile);
+    QSaveFile f(jsonFile);
     if (!f.open(QIODevice::WriteOnly)) return false;
-    f.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    const auto data = QJsonDocument(root).toJson(QJsonDocument::Indented);
+    if (f.write(data) != data.size() || !f.commit()) return false;
     qInfo() << "[HandEye] exported" << m_samples.size() << "samples to" << jsonFile;
     return true;
 }

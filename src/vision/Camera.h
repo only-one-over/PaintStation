@@ -26,10 +26,5 @@ public:
     virtual Intrinsics intrinsics() const = 0;
 
     // 像素(u,v) + 对应深度 z(mm) -> 相机坐标系下 3D 点 (mm)
-    cv::Point3f pixelToCamera(int u, int v, float zMM, const Intrinsics& K) const {
-        if (zMM <= 0) return {0,0,0};
-        float x = (u - K.cx) * zMM / K.fx;
-        float y = (v - K.cy) * zMM / K.fy;
-        return {x, y, zMM};
-    }
+    virtual bool pixelToCamera(int u, int v, float zMM, cv::Point3f& out) const = 0;
 };

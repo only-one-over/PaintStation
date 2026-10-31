@@ -49,6 +49,7 @@ public:
     FlowEditPage(RobotController* robot, PointStore* points, QWidget* parent = nullptr);
     ~FlowEditPage();
     void refreshPointCombo();
+    void stopFromPanel();
 
 signals:
     void statusMessage(const QString&);
@@ -89,9 +90,8 @@ private:
 
     QStackedWidget* m_paramStack;
     QComboBox*    m_pointCombo;
-    QDoubleSpinBox* m_speed;
+    QSpinBox*      m_speed;
     QDoubleSpinBox* m_delaySec;
-    QSpinBox*      m_speedPct;
     QSpinBox*      m_doIndex;
     QComboBox*     m_doValue;
 

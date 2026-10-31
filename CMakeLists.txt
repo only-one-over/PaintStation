@@ -92,7 +92,7 @@ if(WIN32)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory "${EFORT_LIB_DIR}" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${REALSENSE_DLL}" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/realsense2.dll"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "C:/opencv/build/x64/vc16/bin/opencv_world4120d.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/opencv_world4120d.dll"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "C:/opencv/build/x64/vc16/bin/opencv_world4120$<$<CONFIG:Debug>:d>.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/opencv_world4120$<$<CONFIG:Debug>:d>.dll"
         COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/resources" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/resources"
         COMMENT "Copy SDK/OpenCV/RealSense DLLs + QSS next to exe"
     )
@@ -101,7 +101,7 @@ endif()
 include(CTest)
 if(BUILD_TESTING)
     add_executable(PaintStationTests tests/review_tests.cpp
-        src/vision/HandEyeCalibrator.cpp src/userdata/PointStore.cpp
+        src/vision/HandEyeCalibrator.cpp src/userdata/AppConfig.cpp src/userdata/PointStore.cpp
         src/userdata/FlowStore.cpp src/robot/RobotTypes.cpp)
     target_include_directories(PaintStationTests PRIVATE src/vision src/robot src/userdata ${OpenCV_INCLUDE_DIRS})
     target_link_libraries(PaintStationTests PRIVATE Qt6::Core ${OpenCV_LIBS})

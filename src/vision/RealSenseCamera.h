@@ -19,11 +19,13 @@ public:
 
     bool readFrame(cv::Mat& color, cv::Mat& alignedDepth) override;
     Intrinsics intrinsics() const override { return m_K; }
+    bool pixelToCamera(int u, int v, float zMM, cv::Point3f& out) const override;
 
 private:
 #if HAVE_LIBREALSENSE
     rs2::pipeline*   m_pipe = nullptr;
     rs2::align       m_align{RS2_STREAM_COLOR};
+    rs2_intrinsics   m_colorIntrinsics{};
 #endif
     bool             m_opened = false;
     Intrinsics       m_K;
