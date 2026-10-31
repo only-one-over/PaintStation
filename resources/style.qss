@@ -1,0 +1,169 @@
+/* ========== PaintStation 深色工业风 v2 (参考 KUKA FlexPendant) ========== */
+QMainWindow, QWidget {
+    background-color: #0f1419;
+    color: #e5e7eb;
+    font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+    font-size: 13px;
+}
+
+/* 顶部状态条 */
+QFrame#topBar {
+    background-color: #1a1f2e;
+    border-bottom: 1px solid #2a3142;
+}
+QFrame#topBar QLabel {
+    font-size: 13px;
+    font-weight: 600;
+    color: #f3f4f6;
+}
+
+/* 左侧导航 */
+QListWidget#navList {
+    background-color: #141821;
+    border: none;
+    border-right: 1px solid #2a3142;
+    outline: none;
+    padding: 8px 0;
+    font-size: 14px;
+    min-width: 140px;
+}
+QListWidget#navList::item {
+    padding: 18px 20px;
+    border-left: 3px solid transparent;
+    color: #9ca3af;
+}
+QListWidget#navList::item:hover {
+    background-color: #1f2937;
+    color: #e5e7eb;
+}
+QListWidget#navList::item:selected {
+    background-color: #1a2332;
+    border-left: 3px solid #3b82f6;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* 卡片分组 */
+QGroupBox {
+    background-color: #161b26;
+    border: 1px solid #2a3142;
+    border-radius: 8px;
+    margin-top: 18px;
+    padding-top: 16px;
+    font-weight: 600;
+    color: #cbd5e1;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 14px;
+    padding: 0 8px;
+    color: #94a3b8;
+}
+
+/* 标题 */
+QLabel#titleLabel {
+    font-size: 18px;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+/* 输入控件 */
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
+    background-color: #0f1419;
+    border: 1px solid #2a3142;
+    border-radius: 4px;
+    padding: 6px 10px;
+    min-height: 22px;
+    color: #e5e7eb;
+}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {
+    border: 1px solid #3b82f6;
+}
+QComboBox::drop-down { border: none; width: 22px; }
+QComboBox QAbstractItemView {
+    background-color: #1a1f2e;
+    border: 1px solid #2a3142;
+    selection-background-color: #3b82f6;
+}
+QSpinBox::up-button, QSpinBox::down-button,
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+    width: 16px; background: #1f2937; border: none;
+}
+
+/* 按钮 */
+QPushButton {
+    background-color: #2563eb;
+    color: #ffffff;
+    border: none;
+    border-radius: 5px;
+    padding: 9px 18px;
+    font-weight: 600;
+    min-height: 22px;
+}
+QPushButton:hover { background-color: #3b82f6; }
+QPushButton:pressed { background-color: #1d4ed8; }
+QPushButton:disabled { background-color: #1f2937; color: #4b5563; }
+
+QPushButton[secondary="true"] {
+    background-color: #1f2937;
+    color: #d1d5db;
+}
+QPushButton[secondary="true"]:hover { background-color: #374151; }
+
+/* 表格/列表 */
+QTableWidget, QListWidget {
+    background-color: #0f1419;
+    border: 1px solid #2a3142;
+    border-radius: 4px;
+    gridline-color: #1f2937;
+    outline: none;
+    selection-background-color: #1e3a5f;
+}
+QTableWidget::item, QListWidget::item {
+    padding: 6px;
+    border-bottom: 1px solid #1a1f2e;
+}
+QHeaderView::section {
+    background-color: #161b26;
+    border: none;
+    border-bottom: 1px solid #2a3142;
+    padding: 8px;
+    font-weight: 600;
+    color: #9ca3af;
+}
+
+/* 坐标显示 */
+QLabel#coordLabel {
+    font-family: "Consolas", "Cascadia Code", monospace;
+    font-size: 13px;
+    background: #0a0f1a;
+    border: 1px solid #1e3a5f;
+    border-radius: 6px;
+    padding: 10px;
+    color: #22d3ee;
+}
+
+/* 状态栏 */
+QStatusBar {
+    background-color: #141821;
+    border-top: 1px solid #2a3142;
+    color: #9ca3af;
+}
+
+/* 图像区 */
+QFrame#imageFrame {
+    background: #000;
+    border: 1px solid #2a3142;
+    border-radius: 8px;
+}
+
+/* 滚动条 */
+QScrollBar:vertical {
+    background: #0f1419; width: 10px; margin: 0;
+}
+QScrollBar::handle:vertical {
+    background: #374151; border-radius: 5px; min-height: 30px;
+}
+QScrollBar::handle:vertical:hover { background: #4b5563; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }

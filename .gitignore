@@ -1,0 +1,5 @@
+build*/
+userdata/
+.vs/
+*.user
+*.pdb
